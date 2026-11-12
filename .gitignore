@@ -1,0 +1,31 @@
+# Flutter y Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+.vscode/
+
+# Android
+android/.gradle/
+android/local.properties
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
+*.jks
+*.keystore
+
+# Firebase y secretos
+.env
+.env.*
+*.pem
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Evidencias locales
+docs/evidencias/*.mp4
+docs/evidencias/*.mov
