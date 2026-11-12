@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
+import 'firebase_options.dart';
+
 /// Resultado de intentar inicializar Firebase.
 ///
 /// La app no falla si Firebase no está configurado: informa el estado y sigue
@@ -32,7 +34,9 @@ class ResultadoFirebase {
 Future<ResultadoFirebase> inicializarFirebase() async {
   try {
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     }
     final proyecto = Firebase.app().options.projectId;
     return ResultadoFirebase(
