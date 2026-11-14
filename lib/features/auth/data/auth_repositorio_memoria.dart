@@ -54,6 +54,31 @@ class AuthRepositorioMemoria implements AuthRepository {
   }
 
   @override
+  Future<Usuario> registrarse({
+    required String correo,
+    required String contrasena,
+    required String nombre,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+
+    if (!correo.contains('@')) {
+      throw const AuthException('Escribe un correo electrónico válido.');
+    }
+    if (contrasena.length < 6) {
+      throw const AuthException('La contraseña debe tener al menos 6 caracteres.');
+    }
+
+    final usuario = Usuario(
+      id: correo.toLowerCase(),
+      correo: correo.toLowerCase(),
+      nombre: nombre.trim().isNotEmpty ? nombre.trim() : correo.split('@').first,
+    );
+    _usuario = usuario;
+    _controlador.add(usuario);
+    return usuario;
+  }
+
+  @override
   Future<void> cerrarSesion() async {
     _usuario = null;
     _controlador.add(null);

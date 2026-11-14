@@ -5,10 +5,10 @@ import '../bloc/sesion_bloc.dart';
 import '../bloc/sesion_event.dart';
 import '../bloc/sesion_state.dart';
 
-/// Pantalla de acceso.
+/// Pantalla de acceso y registro (S2).
 ///
-/// En S1 valida contra el repositorio en memoria; en S2 se conecta a Firebase
-/// Authentication sin cambiar los eventos ni los estados.
+/// Se conecta a Firebase Authentication mediante [SesionBloc]. Permite tanto el
+/// inicio de sesión de cuentas existentes como la creación de nuevas cuentas.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -18,36 +18,56 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final GlobalKey<FormState> _formulario = GlobalKey<FormState>();
-  final TextEditingController _correo =
-      TextEditingController(text: 'demo@uandina.edu.pe');
-  final TextEditingController _contrasena = TextEditingController(text: '123456');
+  final TextEditingController _nombre = TextEditingController();
+  final TextEditingController _correo = TextEditingController();
+  final TextEditingController _contrasena = TextEditingController();
 
+  bool _esRegistro = false;
   bool _verContrasena = false;
 
   @override
   void dispose() {
+    _nombre.dispose();
     _correo.dispose();
     _contrasena.dispose();
     super.dispose();
   }
 
-  void _ingresar() {
+  void _enviar() {
     if (!(_formulario.currentState?.validate() ?? false)) {
       return;
     }
     FocusScope.of(context).unfocus();
-    context.read<SesionBloc>().add(
-          IniciarSesion(
-            correo: _correo.text.trim(),
-            contrasena: _contrasena.text,
-          ),
-        );
+    final bloc = context.read<SesionBloc>();
+    if (_esRegistro) {
+      bloc.add(
+        RegistrarUsuario(
+          correo: _correo.text.trim(),
+          contrasena: _contrasena.text,
+          nombre: _nombre.text.trim(),
+        ),
+      );
+    } else {
+      bloc.add(
+        IniciarSesion(
+          correo: _correo.text.trim(),
+          contrasena: _contrasena.text,
+        ),
+      );
+    }
+  }
+
+  void _alternarModo() {
+    setState(() {
+      _esRegistro = !_esRegistro;
+      _formulario.currentState?.reset();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
-    final iniciando = context.watch<SesionBloc>().state is SesionIniciando;
+    final procesando = context.watch<SesionBloc>().state is SesionIniciando;
 
     return Scaffold(
       body: SafeArea(
@@ -56,7 +76,10 @@ class _LoginPageState extends State<LoginPage> {
           listener: (context, estado) {
             if (estado is SesionError) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(estado.mensaje)),
+                SnackBar(
+                  content: Text(estado.mensaje),
+                  backgroundColor: tema.colorScheme.error,
+                ),
               );
             }
           },
@@ -83,11 +106,32 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Agenda de citas y medicamentos para el adulto mayor',
+                        _esRegistro
+                            ? 'Crea tu cuenta para gestionar citas y medicamentos'
+                            : 'Agenda de citas y medicamentos para el adulto mayor',
                         textAlign: TextAlign.center,
                         style: tema.textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 28),
+                      if (_esRegistro) ...[
+                        TextFormField(
+                          controller: _nombre,
+                          textInputAction: TextInputAction.next,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(
+                            labelText: 'Nombre completo',
+                            hintText: 'Ej. María Pérez',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                          validator: (valor) {
+                            if ((valor ?? '').trim().isEmpty) {
+                              return 'Escribe tu nombre.';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       TextFormField(
                         controller: _correo,
                         keyboardType: TextInputType.emailAddress,
@@ -115,7 +159,7 @@ class _LoginPageState extends State<LoginPage> {
                         obscureText: !_verContrasena,
                         textInputAction: TextInputAction.done,
                         autofillHints: const [AutofillHints.password],
-                        onFieldSubmitted: (_) => _ingresar(),
+                        onFieldSubmitted: (_) => _enviar(),
                         decoration: InputDecoration(
                           labelText: 'Contraseña',
                           prefixIcon: const Icon(Icons.lock_outline),
@@ -142,38 +186,27 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 24),
                       FilledButton.icon(
-                        onPressed: iniciando ? null : _ingresar,
-                        icon: iniciando
+                        onPressed: procesando ? null : _enviar,
+                        icon: procesando
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Icon(Icons.login),
-                        label: Text(iniciando ? 'Ingresando…' : 'Ingresar'),
+                            : Icon(_esRegistro ? Icons.person_add : Icons.login),
+                        label: Text(
+                          procesando
+                              ? (_esRegistro ? 'Registrando…' : 'Ingresando…')
+                              : (_esRegistro ? 'Crear cuenta' : 'Ingresar'),
+                        ),
                       ),
-                      const SizedBox(height: 24),
-                      Card(
-                        color: tema.colorScheme.surfaceContainerHighest,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Sesión de demostración',
-                                style: tema.textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Correo: demo@uandina.edu.pe\n'
-                                'Contraseña: 123456\n'
-                                'En la S2 estas credenciales se reemplazan por '
-                                'Firebase Authentication.',
-                                style: tema.textTheme.bodyMedium,
-                              ),
-                            ],
-                          ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: procesando ? null : _alternarModo,
+                        child: Text(
+                          _esRegistro
+                              ? '¿Ya tienes una cuenta? Inicia sesión aquí'
+                              : '¿No tienes cuenta? Regístrate aquí',
                         ),
                       ),
                     ],

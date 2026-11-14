@@ -3,8 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/theme/app_theme.dart';
-import 'features/auth/data/auth_repository.dart';
+import 'features/auth/data/auth_repositorio_firebase.dart';
 import 'features/auth/data/auth_repositorio_memoria.dart';
+import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/bloc/sesion_bloc.dart';
 import 'features/auth/presentation/bloc/sesion_event.dart';
 import 'features/auth/presentation/bloc/sesion_state.dart';
@@ -31,7 +32,10 @@ class AppSalud extends StatelessWidget {
     AuthRepository? authRepository,
     CitasRepository? citasRepository,
     MedicamentosRepository? medicamentosRepository,
-  })  : _authRepository = authRepository ?? AuthRepositorioMemoria(),
+  })  : _authRepository = authRepository ??
+            (resultadoFirebase.inicializado
+                ? AuthRepositorioFirebase()
+                : AuthRepositorioMemoria()),
         _citasRepository = citasRepository ?? CitasRepositorioMemoria.demo(),
         _medicamentosRepository =
             medicamentosRepository ?? MedicamentosRepositorioMemoria.demo();

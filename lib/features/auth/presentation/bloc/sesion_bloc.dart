@@ -12,6 +12,7 @@ class SesionBloc extends Bloc<SesionEvent, SesionState> {
   SesionBloc(this._repositorio) : super(const SesionVerificando()) {
     on<VerificarSesion>(_alVerificar);
     on<IniciarSesion>(_alIniciar);
+    on<RegistrarUsuario>(_alRegistrar);
     on<CerrarSesion>(_alCerrar);
   }
 
@@ -49,6 +50,25 @@ class SesionBloc extends Bloc<SesionEvent, SesionState> {
       emit(SesionError(error.mensaje));
     } catch (_) {
       emit(const SesionError('No se pudo iniciar sesión. Intenta nuevamente.'));
+    }
+  }
+
+  Future<void> _alRegistrar(
+    RegistrarUsuario event,
+    Emitter<SesionState> emit,
+  ) async {
+    emit(const SesionIniciando());
+    try {
+      final usuario = await _repositorio.registrarse(
+        correo: event.correo,
+        contrasena: event.contrasena,
+        nombre: event.nombre,
+      );
+      emit(SesionConUsuario(usuario));
+    } on AuthException catch (error) {
+      emit(SesionError(error.mensaje));
+    } catch (_) {
+      emit(const SesionError('No se pudo crear la cuenta. Intenta nuevamente.'));
     }
   }
 

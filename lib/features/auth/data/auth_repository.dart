@@ -30,6 +30,15 @@ abstract interface class AuthRepository {
     required String contrasena,
   });
 
+  /// Registra una nueva cuenta y devuelve el usuario autenticado.
+  ///
+  /// Lanza [AuthException] cuando los datos no son válidos o el correo ya existe.
+  Future<Usuario> registrarse({
+    required String correo,
+    required String contrasena,
+    required String nombre,
+  });
+
   /// Cierra la sesión actual.
   Future<void> cerrarSesion();
 }
