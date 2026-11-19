@@ -1,51 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'core/widgets/aviso_configuracion.dart';
-import 'features/citas/presentation/pages/citas_page.dart';
-import 'features/medicamentos/presentation/pages/medicamentos_page.dart';
-import 'features/perfil/presentation/pages/perfil_page.dart';
 import 'firebase_bootstrap.dart';
 
-/// Contenedor principal con la navegación entre funcionalidades.
-class HomeShell extends StatefulWidget {
-  const HomeShell({super.key, required this.resultadoFirebase});
+/// Contenedor principal con la barra de navegación inferior integrada a GoRouter.
+class HomeShell extends StatelessWidget {
+  const HomeShell({
+    super.key,
+    required this.resultadoFirebase,
+    required this.child,
+  });
 
   final ResultadoFirebase resultadoFirebase;
+  final Widget child;
 
-  @override
-  State<HomeShell> createState() => _HomeShellState();
-}
+  int _calcularIndice(BuildContext context) {
+    final ubicacion = GoRouterState.of(context).matchedLocation;
+    if (ubicacion.startsWith('/medicamentos')) {
+      return 1;
+    }
+    if (ubicacion.startsWith('/perfil')) {
+      return 2;
+    }
+    return 0; // /citas
+  }
 
-class _HomeShellState extends State<HomeShell> {
-  int _indice = 0;
+  void _alSeleccionarDestino(BuildContext context, int indice) {
+    switch (indice) {
+      case 0:
+        context.go('/citas');
+        break;
+      case 1:
+        context.go('/medicamentos');
+        break;
+      case 2:
+        context.go('/perfil');
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final paginas = <Widget>[
-      const CitasPage(),
-      const MedicamentosPage(),
-      PerfilPage(resultadoFirebase: widget.resultadoFirebase),
-    ];
+    final indiceActual = _calcularIndice(context);
 
     return Scaffold(
       body: Column(
         children: [
-          if (!widget.resultadoFirebase.inicializado)
+          if (!resultadoFirebase.inicializado)
             AvisoConfiguracion(
-              mensaje: widget.resultadoFirebase.mensaje,
-              detalle: widget.resultadoFirebase.detalle,
+              mensaje: resultadoFirebase.mensaje,
+              detalle: resultadoFirebase.detalle,
             ),
-          Expanded(
-            child: IndexedStack(
-              index: _indice,
-              children: paginas,
-            ),
-          ),
+          Expanded(child: child),
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _indice,
-        onDestinationSelected: (indice) => setState(() => _indice = indice),
+        selectedIndex: indiceActual,
+        onDestinationSelected: (indice) => _alSeleccionarDestino(context, indice),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.event_outlined),

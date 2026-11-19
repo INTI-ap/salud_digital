@@ -3,11 +3,9 @@
 Aplicación Android en Flutter para la Unidad III de **Desarrollo de Software II
 (SIS048)**. Este repositorio es la **base técnica** del proyecto integrador RSU
 «Salud Digital del Adulto Mayor»: agenda de citas, recordatorios de medicamentos y
-perfil, organizada con BLoC, repositorios y una estructura por funcionalidad.
+perfil, organizada con BLoC, repositorios, Firebase Authentication, navegación declarativa con GoRouter y un tema Material 3 accesible.
 
-> **Estado:** base de la sesión S1. La autenticación real con Firebase, las rutas
-> protegidas, Firestore, las notificaciones y la IA se incorporan en las sesiones
-> S2 a S11. El código está preparado para crecer sin rehacer la arquitectura.
+> **Estado:** Sesión S3 completada (Guía 09). Incluye autenticación con Firebase Auth, rutas protegidas y navegación declarativa con GoRouter, cuatro variantes de tema Material 3 accesible (claro, oscuro, alto contraste), splash screen nativo de Android 12+, análisis estático limpio y suite de 30 pruebas automatizadas en verde.
 
 ---
 
@@ -15,24 +13,22 @@ perfil, organizada con BLoC, repositorios y una estructura por funcionalidad.
 
 - Proyecto Flutter para Android con paquete `pe.edu.uandina.salud_digital`.
 - Arquitectura en tres capas y organización **feature-first**.
-- Módulos `citas` y `medicamentos` completos sobre repositorios en memoria.
-- Módulo `auth` con contrato de repositorio, implementación de demostración y
-  `SesionBloc`; en S2 se reemplaza por Firebase Authentication.
-- Tema Material 3 con criterios de accesibilidad (texto base 18, objetivos de
-  48 × 48, etiquetas semánticas y mensajes de error claros).
-- Inicialización tolerante de Firebase: si el proyecto no está configurado, la app
-  arranca con datos de demostración y muestra un aviso; no se cae.
-- Pruebas de bloques, repositorios y una prueba de widget.
-- Documentación: este README, un ADR y la lista del Checkpoint 1.
+- Módulos `citas` y `medicamentos` sobre repositorios en memoria (preparados para Firestore en S4–S6).
+- Módulo `auth` con autenticación real de Firebase Authentication (`AuthRepositorioFirebase`) y alternativa en memoria (`AuthRepositorioMemoria`).
+- Navegación declarativa con **GoRouter** (`lib/app_router.dart`) y sincronización reactiva de estado (`lib/router_refresh.dart`).
+- Rutas públicas (`/`, `/acceso`) y rutas protegidas (`/citas`, `/medicamentos`, `/perfil`) bajo `ShellRoute` con `NavigationBar`.
+- Tema Material 3 accesible en cuatro variantes: claro, oscuro, alto contraste claro y alto contraste oscuro (`lib/core/theme/app_theme.dart`).
+- Splash screen nativo compatible con Android 12+ (`values-v31/styles.xml`) y versiones previas (`values/styles.xml`).
+- 30 pruebas automatizadas unitarias, de bloques, de widgets, de accesibilidad (texto al 200%) y de redirección de rutas.
+- Documentación completa: ADR 0001, ADR 0003, checklist de accesibilidad y guía de verificación.
 
 ## 2. Requisitos
 
 | Herramienta | Versión o condición |
 |---|---|
-| Flutter | Canal estable (probado con 3.41.1 / Dart 3.11) |
-| Android Studio | Versión estable con SDK de Android |
-| Emulador | Imagen con servicios de Google Play |
-| Node.js | 18.0.0 o superior (solo si se configura Firebase) |
+| Flutter | Canal estable (Flutter 3.44.9+ / Dart 3.11+) |
+| Android SDK / Platform Tools | API 24+ (minSdk 24, probado en dispositivo físico Android 9 y emulador) |
+| Java JDK | OpenJDK 17 LTS |
 | Firebase CLI y FlutterFire CLI | `firebase-tools` y `flutterfire_cli` |
 
 Verificación rápida:
@@ -40,171 +36,118 @@ Verificación rápida:
 ```bash
 flutter --version
 flutter doctor
-flutter doctor --android-licenses
-flutter emulators && flutter devices
+flutter devices
 ```
 
 ## 3. Puesta en marcha
 
 ```bash
-# 1. Dependencias
+# 1. Obtener dependencias
 flutter pub get
 
-# 2. Ejecutar sin Firebase (datos de demostración)
-flutter run
+# 2. Análisis estático (debe ser 0 observaciones)
+flutter analyze
 
-# 3. Configurar Firebase (recomendado para el Checkpoint 1)
-npm install -g firebase-tools
-firebase login
-dart pub global activate flutterfire_cli
-flutterfire configure --project=<tu-proyecto> --platforms=android
+# 3. Ejecutar pruebas automatizadas
+flutter test
 
-# 4. Volver a ejecutar y comprobar la consola
+# 4. Ejecutar en dispositivo físico o emulador
 flutter run
 ```
 
 Al inicializar correctamente, la consola imprime:
 
 ```
-Firebase conectado: <identificador-del-proyecto>
+Firebase conectado: salud-digital-b4c2a
 ```
 
-Si no está configurado, imprime un mensaje de advertencia y la app sigue
-funcionando con los repositorios en memoria. El aviso también aparece en la parte
-superior de la pantalla principal.
+Si Firebase no está configurado o no hay conexión de red, la app opera de manera tolerante con repositorios en memoria sin detenerse abruptamente.
 
-El código inicializa Firebase con `Firebase.initializeApp()` sin opciones: en
-Android eso usa la configuración nativa que genera `flutterfire configure`
-(`android/app/google-services.json`). Si el equipo prefiere el patrón con
-`DefaultFirebaseOptions.currentPlatform`, ejecute la CLI y cambie esa llamada en
-`lib/firebase_bootstrap.dart`; el archivo `lib/firebase_options.dart` no contiene
-secretos y puede versionarse.
+### Rutas y Regla de Acceso
 
-El proyecto usa `minSdk` 24 (`flutter.minSdkVersion`), por encima del mínimo 23 que
-exige Firebase para Android, y declara el permiso `INTERNET` en el manifiesto.
+| Ruta | Pantalla | Nivel de Protección | Comportamiento |
+|---|---|---|---|
+| `/` | `PantallaCargaSplash` | Pública | Verifica la sesión. Si termina y no hay sesión → `/acceso`; si hay sesión → `/citas`. |
+| `/acceso` | `LoginPage` | Pública | Login y Registro. Si el usuario ya está autenticado, redirige a `/citas`. |
+| `/citas` | `CitasPage` | Protegida | ShellRoute pestaña 1. Redirige a `/acceso` si no hay sesión. |
+| `/medicamentos` | `MedicamentosPage` | Protegida | ShellRoute pestaña 2. Redirige a `/acceso` si no hay sesión. |
+| `/perfil` | `PerfilPage` | Protegida | ShellRoute pestaña 3 y cierre de sesión. Redirige a `/acceso` si no hay sesión. |
+| Error | `PaginaRutaNoEncontrada` | Pública | Muestra error amigable ante rutas inexistentes con botón para volver. |
 
-### Credenciales de demostración
-
-La implementación en memoria inicia con una sesión de demostración. Si se cierra
-sesión, se puede volver a entrar con:
-
-- Correo: `demo@uandina.edu.pe`
-- Contraseña: `123456`
-
-Estas credenciales **no** existen en Firebase: son un andamiaje para la S1 y se
-eliminan en la S2.
-
-## 4. Estructura
+## 4. Estructura del Proyecto
 
 ```text
 lib/
 ├── main.dart                     # Arranque: Firebase y runApp
-├── app.dart                      # Providers, tema y flujo de sesión
+├── app.dart                      # MultiBlocProvider, MaterialApp.router y temas
+├── app_router.dart               # Configuración declarativa de GoRouter y redirect
+├── router_refresh.dart           # Sincronización Stream BLoC → Listenable GoRouter
 ├── firebase_bootstrap.dart       # Inicialización tolerante de Firebase
-├── home_shell.dart               # Navegación principal (Citas, Medicamentos, Perfil)
+├── firebase_options.dart         # Credenciales de plataforma Firebase
+├── home_shell.dart               # ShellRoute con NavigationBar adaptada a GoRouter
 ├── core/
-│   ├── theme/app_theme.dart      # Material 3 y tipografía accesible
+│   ├── theme/app_theme.dart      # Material 3: claro, oscuro y alto contraste
 │   ├── utils/fechas.dart         # Formato de fechas en español
-│   └── widgets/                  # Estados vacío/error y aviso de configuración
+│   └── widgets/                  # Estados vacío, error y avisos
 └── features/
     ├── auth/
     │   ├── domain/usuario.dart
-    │   ├── data/                 # Contrato + implementación en memoria
-    │   └── presentation/         # SesionBloc y pantalla de acceso
+    │   ├── data/                 # Repositorio Firebase y Memoria
+    │   └── presentation/         # SesionBloc y LoginPage accesible
     ├── citas/
     │   ├── domain/cita.dart
-    │   ├── data/                 # CitasRepository + memoria
-    │   └── presentation/         # Bloc, página, tarjeta y formulario
+    │   ├── data/                 # CitasRepository + Memoria
+    │   └── presentation/         # CitasBloc y CitasPage
     ├── medicamentos/
     │   ├── domain/medicamento.dart
-    │   ├── data/                 # MedicamentosRepository + memoria
-    │   └── presentation/         # Bloc, página y formulario
-    └── perfil/presentation/      # Estado de la sesión y de Firebase
+    │   ├── data/                 # MedicamentosRepository + Memoria
+    │   └── presentation/         # MedicamentosBloc y MedicamentosPage
+    └── perfil/presentation/      # PerfilPage y diálogo accesible de logout
 ```
 
-### Regla de dependencia
+## 5. Decisiones de Arquitectura
 
-```text
-presentation  →  business logic  →  data  →  fuente de datos
-   (UI)            (Bloc/Cubit)     (Repository)   (memoria / Firestore)
-```
+- **GoRouter Declarativo**: Centraliza la protección de rutas en `app_router.dart` mediante `redirect`, evitando navegaciones imperativas desordenadas.
+- **Logout Reactivo sin `context.go`**: El cierre de sesión emite `CerrarSesion()` al BLoC. `RouterRefreshNotifier` detecta el cambio de estado y GoRouter redirige de inmediato a `/acceso`, impidiendo volver a rutas privadas con el botón Atrás.
+- **Accesibilidad desde el diseño**: Contraste ≥ 4.5:1 (y 7:1 en alto contraste), soporte nativo de modo oscuro, objetivos táctiles mínimos de 48 × 48 dp y texto base de 18 sp escalable al 200 % sin overflow.
 
-La presentación no conoce Firestore; la capa de datos no conoce widgets. El bloque
-recibe el repositorio por constructor y nunca lo instancia.
+Más detalles en:
+- [`docs/adr/0001-arquitectura-bloc-firebase.md`](docs/adr/0001-arquitectura-bloc-firebase.md)
+- [`docs/adr/0003-navegacion-y-tema.md`](docs/adr/0003-navegacion-y-tema.md)
+- [`docs/checklist-accesibilidad.md`](docs/checklist-accesibilidad.md)
 
-## 5. Decisiones de arquitectura
-
-- **BLoC** para el estado: eventos y estados explícitos, pruebas con `bloc_test`.
-- **Repositorios** como contrato: en S1 la implementación es en memoria; en S4 se
-  sustituye por Firestore sin tocar los bloques ni las pantallas.
-- **Feature-first**: cada funcionalidad agrupa `domain`, `data` y `presentation`.
-- **Material 3** y accesibilidad desde el primer commit.
-- **Firebase opcional en desarrollo**: la app no depende de la nube para arrancar.
-
-El detalle está en [`docs/adr/0001-arquitectura-bloc-firebase.md`](docs/adr/0001-arquitectura-bloc-firebase.md).
-
-## 6. Calidad
+## 6. Calidad y Verificación
 
 ```bash
-flutter analyze     # sin errores
-flutter test        # pruebas de bloques, repositorios y widget
+# Análisis estático
+flutter analyze
+
+# Suite de pruebas unitarias, de bloques y widgets
+flutter test
+
+# Verificación de arranque en frío (Android)
+adb shell am force-stop pe.edu.uandina.salud_digital
+adb shell am start -n pe.edu.uandina.salud_digital/.MainActivity
 ```
 
-O en una sola línea:
-
-```bash
-./tool/verificar.sh
-```
-
-**Resultado de la verificación (10/11/2026, Flutter 3.41.1 / Dart 3.11.0):**
-
+**Resultado de la verificación (S3 / Guía 09):**
 - `flutter analyze`: `No issues found!`
-- `flutter test`: 22 pruebas en verde.
-- No se compiló el APK en el entorno de generación porque no incluye Android
-  SDK; esa comprobación se hace en el laboratorio con el emulador.
+- `flutter test`: 30 pruebas pasando con éxito (100 %).
 
-Cobertura actual de la base:
+## 7. Ruta de la Unidad III
 
-| Prueba | Qué verifica |
-|---|---|
-| `citas_bloc_test.dart` | Carga, creación, eliminación y estado de error |
-| `citas_repositorio_memoria_test.dart` | Contrato del repositorio y lista inmutable |
-| `medicamentos_bloc_test.dart` | Carga y creación de medicamentos |
-| `sesion_bloc_test.dart` | Sesión de demostración, cierre y error de credenciales |
-| `widget_test.dart` | La app abre en la agenda de citas |
+| Sesión | Contenido | Estado |
+|---|---|:---:|
+| S1 | Arquitectura base, BLoC, repositorios y Firebase conectado | Completada |
+| S2 | Firebase Authentication con email/contraseña y formularios accesibles | Completada |
+| S3 | GoRouter, rutas protegidas, logout reactivo y tema Material 3 accesible | **Completada (Guía 09)** |
+| S4–S6 | Firestore, reglas de seguridad, CRUD en tiempo real | Próxima |
+| S7 | Notificaciones locales y recordatorios para adultos mayores | Pendiente |
+| S8 | Asistente de salud y guardarraíles | Pendiente |
+| S9 | Pruebas de integración | Pendiente |
+| S10–S11 | CI/CD y generación de bundle AAB | Pendiente |
 
-## 7. Ruta de la unidad
+## 8. Créditos
 
-| Sesión | Qué se agrega a esta base |
-|---|---|
-| S1 | Estructura, BLoC, repositorios, tema y Firebase inicializado |
-| S2 | Firebase Authentication real y formularios accesibles |
-| S3 | GoRouter, rutas protegidas y tema Material 3 completo |
-| S4–S6 | Firestore, reglas, CRUD en tiempo real y tablero de adherencia |
-| S7 | Notificaciones locales y permisos de Android |
-| S8 | Modo claro con IA y guardarraíles |
-| S9 | Pruebas unitarias, de widgets y de integración |
-| S10–S11 | CI con GitHub Actions, AAB firmado y distribución |
-
-## 8. Datos, privacidad y ética
-
-- Solo se usan datos ficticios. No se incorporan nombres, documentos ni historias
-  clínicas reales.
-- La aplicación no diagnostica, no prescribe y no modifica dosis.
-- No se versionan keystore, `key.properties`, claves privadas ni archivos `.env`.
-- Los archivos de configuración de Firebase contienen identificadores, no secretos;
-  se versionan según la política del equipo.
-
-## 9. Uso de asistentes de IA
-
-- Herramienta: la indicada por el equipo.
-- Uso: explicación de conceptos, revisión de borradores y generación de pruebas.
-- Verificación: cada fragmento se ejecutó con `flutter analyze` y `flutter test`, y
-  el equipo puede explicarlo.
-- Datos compartidos: ninguno. No se enviaron datos personales ni de salud.
-
-## 10. Créditos
-
-Universidad Andina del Cusco · Facultad de Ingeniería y Arquitectura · Escuela
-Profesional de Ingeniería de Sistemas · SIS048 · Semestre 2026-II.
+Universidad Andina del Cusco · Facultad de Ingeniería y Arquitectura · Escuela Profesional de Ingeniería de Sistemas · SIS048 · Semestre 2026-II.  
 Docente: Mtro. Ing. Yover Collantes Valer.
